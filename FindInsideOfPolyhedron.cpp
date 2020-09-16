@@ -8,7 +8,7 @@
 #define printf mexPrintf
 #endif
 
-
+static int dim0, dim1, dim2;
 
 static void findExtremeCoords( const double faces[][3][3], double minCoords[][3], double maxCoords[][3], size_t nFaces )
 {
@@ -93,33 +93,24 @@ static void solve2by2( double A[2][2], double b[2] )
 	b[0] = ( b[0] - A[0][1] * b[1] ) / A[0][0];
 }
 
-static int getCrossings( double crossings[], const double faces[][3][3], int nFaces, double y, double z )
+static int getCrossings( double crossings[], const double faces[][3][3], int nFaces, double dim1Value, double dim2Value )
 {
-	double v1[3];
-	double v2[3];
-	double p[3];
 	double b[2];
 	double A[2][2];
 	int nCrossings = 0;
 
 	for ( int i = 0; i < nFaces; i++ )
 	{
-		for ( int j = 0; j < 3; j++ )
-		{
-			p[j] = faces[i][0][j];
-			v1[j] = faces[i][1][j] - p[j];
-			v2[j] = faces[i][2][j] - p[j];
-		}
-		b[0] = y - p[1];
-		b[1] = z - p[2];
-		A[0][0] = v1[1];
-		A[1][0] = v1[2];
-		A[0][1] = v2[1];
-		A[1][1] = v2[2];
+		b[0] = dim1Value - faces[i][0][dim1];
+		b[1] = dim2Value - faces[i][0][dim2];
+		A[0][0] = faces[i][1][dim1] - faces[i][0][dim1];
+		A[1][0] = faces[i][1][dim2] - faces[i][0][dim2];
+		A[0][1] = faces[i][2][dim1] - faces[i][0][dim1];
+		A[1][1] = faces[i][2][dim2] - faces[i][0][dim2];
 		solve2by2( A, b );
 		if ( b[0] > 0 && b[1] > 0 && ( ( b[0] + b[1] ) < 1 ) )
 		{
-			crossings[nCrossings] = p[0] + b[0] * v1[0] + b[1] * v2[0];
+			crossings[nCrossings] = faces[i][0][dim0] + b[0] * ( faces[i][1][dim0] - faces[i][0][dim0]) + b[1] * ( faces[i][2][dim0] - faces[i][0][dim0] );
 			nCrossings++;
 		}
 	}
@@ -127,6 +118,7 @@ static int getCrossings( double crossings[], const double faces[][3][3], int nFa
 		std::sort( crossings, crossings + nCrossings );
 	return nCrossings;
 }
+
 
 static inline bool isOdd( int n )
 {
@@ -141,6 +133,38 @@ static void buildFaceMatrix( double faces[][3][3], const double vertices[][3], c
 				faces[i][j][k] = vertices[faceIndices[i][j]][k];
 }
 
+static void selectDimensionsForFastestProcessing( size_t *nx, size_t *ny, size_t *nz, size_t dimStep[3])
+{
+	size_t sizes[] = { *nx, *ny, *nz };
+	int dims[3] = { 0, 1, 2 };
+	size_t dimMult[] = { *ny * *nx, 1, *ny };
+
+	for ( int i = 0; i < 2; i++ )
+	{
+		for ( int j = 0; j < 2 - i; j++ )
+		{
+			if ( sizes[j] > sizes[j + 1] )
+			{
+				size_t temp = sizes[j];
+				sizes[j] = sizes[j + 1];
+				sizes[j + 1] = temp;
+				int tempi = dims[j];
+				dims[j] = dims[j + 1];
+				dims[j + 1] = tempi;
+			}
+		}
+	}
+	dim2 = dims[0];
+	dim1 = dims[1];
+	dim0 = dims[2];
+	dimStep[dim0] = dimMult[0];
+	dimStep[dim1] = dimMult[1];
+	dimStep[dim2] = dimMult[2];
+	*nz = sizes[0];
+	*ny = sizes[1];
+	*nx = sizes[2];
+}
+
 
 void insidePolyhedron( bool inside[], const double vertices [][3], const int faceIndices[][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz )
 {
@@ -148,32 +172,37 @@ void insidePolyhedron( bool inside[], const double vertices [][3], const int fac
 	double( *maxCoords )[3] = new double[nFaces][3];
 	double( *minCoords )[3] = new double[nFaces][3];
 	int* facesIndex = new int[nFaces];
-	double( *facesZ )[3][3] = new double[nFaces][3][3];
-	double( *facesY )[3][3] = new double[nFaces][3][3];
-	double( *minCoordsZ )[3] = new double[nFaces][3];
-	double( *maxCoordsZ )[3] = new double[nFaces][3];
+	double( *facesD2 )[3][3] = new double[nFaces][3][3];
+	double( *facesD1 )[3][3] = new double[nFaces][3][3];
+	double( *minCoordsD2 )[3] = new double[nFaces][3];
+	double( *maxCoordsD2 )[3] = new double[nFaces][3];
 	double* crossings = new double[nFaces];
+	size_t dimSteps[3];
 
-	int nxny = nx * ny;
+	selectDimensionsForFastestProcessing( &nx, &ny, &nz, dimSteps );
+
+	size_t nxny = nx * ny;
 
 	buildFaceMatrix( faces, vertices, faceIndices, nFaces );
 
 	findExtremeCoords( faces, minCoords, maxCoords, nFaces );
 
+	const double* xyz[] = { x, y, z };
+
 	for ( int i = 0; i < nz; i++ )
 	{
-		int nFacesZ = findFacesInDim( facesIndex, minCoords, maxCoords, z[i], 2, nFaces );
-		if ( nFacesZ == 0 )
+		int nFacesD2 = findFacesInDim( facesIndex, minCoords, maxCoords, xyz[dim2][i], dim2, nFaces );
+		if ( nFacesD2 == 0 )
 			continue;
-		selectFaces( facesZ, faces, facesIndex, nFacesZ );
-		selectCoords( minCoordsZ, maxCoordsZ, minCoords, maxCoords, facesIndex, nFacesZ );
+		selectFaces( facesD2, faces, facesIndex, nFacesD2 );
+		selectCoords( minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex, nFacesD2 );
 		for ( int j = 0; j < ny; j++ )
 		{
-			int nFacesY = findFacesInDim( facesIndex, minCoordsZ, maxCoordsZ, y[j], 1, nFacesZ );
-			if ( nFacesY == 0 )
+			int nFacesD1 = findFacesInDim( facesIndex, minCoordsD2, maxCoordsD2, xyz[dim1][j], dim1, nFacesD2 );
+			if ( nFacesD1 == 0 )
 				continue;
-			selectFaces( facesY, facesZ, facesIndex, nFacesY );
-			int nCrossings = getCrossings( crossings, facesY, nFacesY, y[j], z[i] );
+			selectFaces( facesD1, facesD2, facesIndex, nFacesD1 );
+			int nCrossings = getCrossings( crossings, facesD1, nFacesD1, xyz[dim1][j], xyz[dim2][i] );
 			if ( nCrossings == 0 )
 				continue;
 			if ( isOdd( nCrossings ) )
@@ -185,22 +214,22 @@ void insidePolyhedron( bool inside[], const double vertices [][3], const int fac
 			int crossingsPassed = 0;
 			for ( int k = 0; k < nx; k++ )
 			{
-				while ( ( crossingsPassed < nCrossings ) && ( crossings[crossingsPassed] < x[k] ) )
+				while ( ( crossingsPassed < nCrossings ) && ( crossings[crossingsPassed] < xyz[dim0][k] ) )
 				{
 					crossingsPassed++;
 					isInside = !isInside;
 				}
-				inside[i * nxny + k * ny + j] = isInside;
+				inside[i * dimSteps[0] + j * dimSteps[1]+ k * dimSteps[2]] = isInside;
 			}
 		}
 	}
 	delete[] maxCoords;
 	delete[] minCoords;
 	delete[] facesIndex;
-	delete[] facesZ;
-	delete[] facesY;
-	delete[] minCoordsZ;
-	delete[] maxCoordsZ;
+	delete[] facesD2;
+	delete[] facesD1;
+	delete[] minCoordsD2;
+	delete[] maxCoordsD2;
 	delete[] crossings;
 	delete[] faces;
 }
