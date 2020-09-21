@@ -10,6 +10,7 @@
 #else
 #define warning(msg) printf(msg)
 #endif
+#include <vector>
 
 
 static int dim0, dim1, dim2;
@@ -101,11 +102,11 @@ static void solve2by2(double A[2][2], double b[2])
 }
 
 /** Get all crossings of triangular faces by a line in a specific direction */
-static int getCrossings(double crossings[], const double faces[][3][3], int nFaces, double dim1Value, double dim2Value)
+static void getCrossings(std::vector<double> &crossings, const double faces[][3][3], int nFaces, double dim1Value, double dim2Value)
 {
 	double b[2];
 	double A[2][2];
-	int nCrossings = 0;
+	crossings.clear();
 
 	for (int i = 0; i < nFaces; i++)
 	{
@@ -118,13 +119,12 @@ static int getCrossings(double crossings[], const double faces[][3][3], int nFac
 		solve2by2(A, b);
 		if (b[0] > 0 && b[1] > 0 && ((b[0] + b[1]) < 1))
 		{
-			crossings[nCrossings] = faces[i][0][dim0] + b[0] * (faces[i][1][dim0] - faces[i][0][dim0]) + b[1] * (faces[i][2][dim0] - faces[i][0][dim0]);
-			nCrossings++;
+			//No pun intended
+			double crossing = faces[i][0][dim0] + b[0] * (faces[i][1][dim0] - faces[i][0][dim0]) + b[1] * (faces[i][2][dim0] - faces[i][0][dim0]);
+			crossings.push_back(crossing);
 		}
 	}
-	if (nCrossings > 0)
-		std::sort(crossings, crossings + nCrossings);
-	return nCrossings;
+	std::sort(crossings.begin(), crossings.end());
 }
 
 
@@ -225,6 +225,7 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	double (*maxCoords)[3] = new double[nFaces][3];
 	double (*minCoords)[3] = new double[nFaces][3];
 	int *facesIndex = new int[nFaces];
+	std::vector<double> crossings;
 	size_t dimSteps[3];
 
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
@@ -250,15 +251,14 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 		{
 			int nFacesD1 = findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1, nFacesD2);
 			if (nFacesD1 == 0)
-				continue;
-			double *crossings = new double[nFacesD1];
+				continue;		
 			double(*facesD1)[3][3] = new double[nFacesD1][3][3];
 			selectFaces(facesD1, facesD2, facesIndex, nFacesD1);
-			int nCrossings = getCrossings(crossings, facesD1, nFacesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
+			getCrossings(crossings, facesD1, nFacesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
+			size_t nCrossings = crossings.size();
 			delete[] facesD1;
 			if (nCrossings == 0)
 			{
-				delete[] crossings;
 				continue;
 			}
 			if (isOdd(nCrossings))
@@ -274,7 +274,6 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				}
 				inside[i * dimSteps[0] + j * dimSteps[1] + k * dimSteps[2]] = isInside;
 			}
-			delete[] crossings;
 		}
 		delete[] maxCoordsD2;
 		delete[] minCoordsD2;
