@@ -2,6 +2,8 @@
 #include "FindInsideOfPolyhedron.h"
 #include <cmath>
 #include <algorithm>
+#include <vector>
+#include <array>
 
 #ifdef MATLAB_MEX_FILE
 #include "mex.h"
@@ -10,7 +12,11 @@
 #else
 #define warning(msg) printf(msg)
 #endif
-#include <vector>
+
+using namespace std;
+
+typedef vector<array<double, 3>> nBy3Array;
+typedef vector<array<array<double, 3>, 3>> nBy3By3Array;
 
 
 static int dim0, dim1, dim2;
@@ -18,8 +24,10 @@ static int dim0, dim1, dim2;
 static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. Try adding random noise to your vertex coordinates to avoid this problem.";
 
 
-static void findExtremeCoords(const double faces[][3][3], double minCoords[][3], double maxCoords[][3], size_t nFaces)
+static void findExtremeCoords(const nBy3By3Array &faces, nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
 {
+	minCoords.resize(nFaces);
+	maxCoords.resize(nFaces);
 	for (int i = 0; i < nFaces; i++)
 	{
 		for (int dim = 0; dim < 3; dim++)
@@ -38,7 +46,7 @@ static void findExtremeCoords(const double faces[][3][3], double minCoords[][3],
 	}
 }
 
-static int findFacesInDim(int *facesIndex, const double minCoords[][3], const double maxCoords[][3], double value, int dim, size_t nFaces)
+static int findFacesInDim(int *facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
 {
 	int count = 0;
 	for (int i = 0; i < nFaces; i++)
@@ -52,23 +60,23 @@ static int findFacesInDim(int *facesIndex, const double minCoords[][3], const do
 	return count;
 }
 
-static void selectFaces(double facesZ[][3][3], const double faces[][3][3], const int facesIndex[], int nFacesZ)
+static void selectFaces(nBy3By3Array& selectedFaces, const nBy3By3Array& faces, const int facesIndex[], int nFacesZ)
 {
+	selectedFaces.clear();
 	for (int i = 0; i < nFacesZ; i++)
-		for (int j = 0; j < 3; j++)
-			for (int k = 0; k < 3; k++)
-				facesZ[i][j][k] = faces[facesIndex[i]][j][k];
+		selectedFaces.push_back(faces[facesIndex[i]]);
+				
 }
 
-static void selectCoords(double minCoordsZ[][3], double maxCoordsZ[][3], const double minCoords[][3], const double maxCoords[][3], const int facesIndex[], size_t nFacesZ)
+static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
+	const nBy3Array& maxCoords, const int facesIndex[], size_t nFacesZ)
 {
+	minCoordsDim.clear();
+	maxCoordsDim.clear();
 	for (int i = 0; i < nFacesZ; i++)
 	{
-		for (int j = 0; j < 3; j++)
-		{
-			minCoordsZ[i][j] = minCoords[facesIndex[i]][j];
-			maxCoordsZ[i][j] = maxCoords[facesIndex[i]][j];
-		}
+		minCoordsDim.push_back(minCoords[facesIndex[i]]);
+		maxCoordsDim.push_back(maxCoords[facesIndex[i]]);
 	}
 }
 
@@ -102,7 +110,7 @@ static void solve2by2(double A[2][2], double b[2])
 }
 
 /** Get all crossings of triangular faces by a line in a specific direction */
-static void getCrossings(std::vector<double> &crossings, const double faces[][3][3], int nFaces, double dim1Value, double dim2Value)
+static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, int nFaces, double dim1Value, double dim2Value)
 {
 	double b[2];
 	double A[2][2];
@@ -124,7 +132,7 @@ static void getCrossings(std::vector<double> &crossings, const double faces[][3]
 			crossings.push_back(crossing);
 		}
 	}
-	std::sort(crossings.begin(), crossings.end());
+	sort(crossings.begin(), crossings.end());
 }
 
 
@@ -220,13 +228,24 @@ of the polyhedron.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
+void insidePolyhedron(bool inside[], const double faces_[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
-	double (*maxCoords)[3] = new double[nFaces][3];
-	double (*minCoords)[3] = new double[nFaces][3];
+	nBy3By3Array faces;
+	nBy3Array minCoords;
+	nBy3Array maxCoords;
 	int *facesIndex = new int[nFaces];
-	std::vector<double> crossings;
+	vector<double> crossings;
+	nBy3Array minCoordsD2;
+	nBy3Array maxCoordsD2;
+	nBy3By3Array facesD2;
+	nBy3By3Array facesD1;
 	size_t dimSteps[3];
+
+	faces.resize(nFaces);
+	for (int i = 0; i < nFaces; i++)
+		for (int j = 0; j < 3; j++)
+			for (int k = 0; k < 3; k++)
+				faces[i][j][k] = faces_[i][j][k];
 
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
 
@@ -242,25 +261,18 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 		int nFacesD2 = findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2, nFaces);
 		if (nFacesD2 == 0)
 			continue;
-		double(*facesD2)[3][3] = new double[nFacesD2][3][3];
-		double(*minCoordsD2)[3] = new double[nFacesD2][3];
-		double(*maxCoordsD2)[3] = new double[nFacesD2][3];
 		selectFaces(facesD2, faces, facesIndex, nFacesD2);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex, nFacesD2);
 		for (int j = 0; j < ny; j++)
 		{
 			int nFacesD1 = findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1, nFacesD2);
 			if (nFacesD1 == 0)
-				continue;		
-			double(*facesD1)[3][3] = new double[nFacesD1][3][3];
+				continue;
 			selectFaces(facesD1, facesD2, facesIndex, nFacesD1);
 			getCrossings(crossings, facesD1, nFacesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
 			size_t nCrossings = crossings.size();
-			delete[] facesD1;
 			if (nCrossings == 0)
-			{
 				continue;
-			}
 			if (isOdd(nCrossings))
 				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
@@ -275,12 +287,8 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				inside[i * dimSteps[0] + j * dimSteps[1] + k * dimSteps[2]] = isInside;
 			}
 		}
-		delete[] maxCoordsD2;
-		delete[] minCoordsD2;
-		delete[] facesD2;
 	}
 	delete[] facesIndex;
-	delete[] minCoords;
-	delete[] maxCoords;
 }
+
 
