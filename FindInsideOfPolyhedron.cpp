@@ -6,7 +6,7 @@
 #ifdef MATLAB_MEX_FILE
 #include "mex.h"
 #define printf mexPrintf
-#define warning(msg) mexWarnMsgIdAndTxt("InsidePolyhedron", msg)
+#define warning(msg) mexWarnMsgIdAndTxt("InsidePolyhedron:LogicError", msg)
 #else
 #define warning(msg) printf(msg)
 #endif
@@ -100,6 +100,7 @@ static void solve2by2(double A[2][2], double b[2])
 	b[0] = (b[0] - A[0][1] * b[1]) / A[0][0];
 }
 
+/** Get all crossings of triangular faces by a line in a specific direction */
 static int getCrossings(double crossings[], const double faces[][3][3], int nFaces, double dim1Value, double dim2Value)
 {
 	double b[2];
@@ -172,6 +173,25 @@ static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t 
 	*nx = sizes[2];
 }
 
+
+/**
+\brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
+This function uses ray-tracing to determine whether or not a point is inside the surface. Since the points
+to be checked are aligned on a grid, we can reuse information for each point to perform the calculation 
+significantly faster than if we were to check each point individually.
+\param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
+in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
+\param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
+\param faceIndices[in] Definition of the triangular faces of the surface. Each row of this matrix consists of three indices into the vertex-list, which together define
+a triangular face.
+\param nFaces Number of faces in the surface (size of faceIndices)
+\param x X-coordinate values on the grid to be checked. 
+\param nx Number of X-coordinates
+\param y Y-coordinate values on the grid to be checked.
+\param ny Number of Y-coordinates
+\param z Z-coordinate values on the grid to be checked.
+\param nz Number of Z-coordinates
+*/
 void insidePolyhedron(bool inside[], const double vertices[][3], const int faceIndices[][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
 	double (*faces)[3][3] = new double[nFaces][3][3];
@@ -180,16 +200,31 @@ void insidePolyhedron(bool inside[], const double vertices[][3], const int faceI
 	delete[] faces;
 }
 
+/**
+\brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
+This function uses ray-tracing to determine whether or not a point is inside the surface. Since the points
+to be checked are aligned on a grid, we can reuse information for each point to perform the calculation
+significantly faster than if we were to check each point individually.
+This function is exactly the same as the other insidePolyhedron function, except that the surface is defined in a single list of triangular faces instead of a separate
+list of vertices and faces.
+\param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
+in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
+\param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
+\param faces[in] Definition of the triangular faces of the surface. faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face 
+of the polyhedron.
+\param nFaces Number of faces in the surface (size of faces)
+\param x X-coordinate values on the grid to be checked.
+\param nx Number of X-coordinates
+\param y Y-coordinate values on the grid to be checked.
+\param ny Number of Y-coordinates
+\param z Z-coordinate values on the grid to be checked.
+\param nz Number of Z-coordinates
+*/
 void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
 	double (*maxCoords)[3] = new double[nFaces][3];
 	double (*minCoords)[3] = new double[nFaces][3];
 	int *facesIndex = new int[nFaces];
-	double (*facesD2)[3][3] = new double[nFaces][3][3];
-	double (*facesD1)[3][3] = new double[nFaces][3][3];
-	double (*minCoordsD2)[3] = new double[nFaces][3];
-	double (*maxCoordsD2)[3] = new double[nFaces][3];
-	double *crossings = new double[nFaces];
 	size_t dimSteps[3];
 
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
@@ -206,6 +241,9 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 		int nFacesD2 = findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2, nFaces);
 		if (nFacesD2 == 0)
 			continue;
+		double(*facesD2)[3][3] = new double[nFacesD2][3][3];
+		double(*minCoordsD2)[3] = new double[nFacesD2][3];
+		double(*maxCoordsD2)[3] = new double[nFacesD2][3];
 		selectFaces(facesD2, faces, facesIndex, nFacesD2);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex, nFacesD2);
 		for (int j = 0; j < ny; j++)
@@ -213,15 +251,18 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 			int nFacesD1 = findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1, nFacesD2);
 			if (nFacesD1 == 0)
 				continue;
+			double *crossings = new double[nFacesD1];
+			double(*facesD1)[3][3] = new double[nFacesD1][3][3];
 			selectFaces(facesD1, facesD2, facesIndex, nFacesD1);
 			int nCrossings = getCrossings(crossings, facesD1, nFacesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
+			delete[] facesD1;
 			if (nCrossings == 0)
-				continue;
-			if (isOdd(nCrossings))
 			{
-				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
-				return;
+				delete[] crossings;
+				continue;
 			}
+			if (isOdd(nCrossings))
+				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
 			int crossingsPassed = 0;
 			for (int k = 0; k < nx; k++)
@@ -233,15 +274,14 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				}
 				inside[i * dimSteps[0] + j * dimSteps[1] + k * dimSteps[2]] = isInside;
 			}
+			delete[] crossings;
 		}
+		delete[] maxCoordsD2;
+		delete[] minCoordsD2;
+		delete[] facesD2;
 	}
-	delete[] maxCoords;
-	delete[] minCoords;
 	delete[] facesIndex;
-	delete[] facesD2;
-	delete[] facesD1;
-	delete[] minCoordsD2;
-	delete[] maxCoordsD2;
-	delete[] crossings;
+	delete[] minCoords;
+	delete[] maxCoords;
 }
 
