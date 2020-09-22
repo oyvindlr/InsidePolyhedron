@@ -1,0 +1,4 @@
+LIBRARY InsidePolyhedron
+EXPORTS
+	?insidePolyhedron@@YAXQEA_NAEBV?$vector@V?$array@V?$array@N$02@std@@$02@std@@V?$allocator@V?$array@V?$array@N$02@std@@$02@std@@@2@@std@@QEBN_K2323@Z
+	?insidePolyhedron@@YAXQEA_NQEAY02$$CBNQEAY02$$CBH_KQEBN34343@Z

@@ -7,20 +7,31 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InsidePolyhedron", "InsideP
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
+		Debug dll|x64 = Debug dll|x64
+		Debug dll|x86 = Debug dll|x86
+		Debug mex|x64 = Debug mex|x64
+		Debug mex|x86 = Debug mex|x86
+		Release dll|x64 = Release dll|x64
+		Release dll|x86 = Release dll|x86
+		Release mex|x64 = Release mex|x64
+		Release mex|x86 = Release mex|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug|x64.ActiveCfg = Debug|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug|x64.Build.0 = Debug|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug|x86.ActiveCfg = Debug|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug|x86.Build.0 = Debug|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release|x64.ActiveCfg = Release|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release|x64.Build.0 = Release|x64
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release|x86.ActiveCfg = Release|Win32
-		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release|x86.Build.0 = Release|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug dll|x64.ActiveCfg = Debug dll|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug dll|x64.Build.0 = Debug dll|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug dll|x86.ActiveCfg = Debug dll|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug dll|x86.Build.0 = Debug dll|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug mex|x64.ActiveCfg = Debug mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug mex|x64.Build.0 = Debug mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug mex|x86.ActiveCfg = Debug mex|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Debug mex|x86.Build.0 = Debug mex|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release dll|x64.ActiveCfg = Release mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release dll|x64.Build.0 = Release mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release dll|x86.ActiveCfg = Release dll|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release mex|x64.ActiveCfg = Release mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release mex|x64.Build.0 = Release mex|x64
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release mex|x86.ActiveCfg = Release mex|Win32
+		{CB1565AD-911B-47ED-AAF4-F9C10738AAF5}.Release mex|x86.Build.0 = Release mex|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

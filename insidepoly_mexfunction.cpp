@@ -1,12 +1,18 @@
+
+
 /** \file insidepoly_mexfunction.cpp
 *	\brief Matlab mex interface for FindInsideOfPolyhedron
 *	\author Oyvind L Rortveit
 *	\date 2020
 */
 
+
 #include "pch.h"
-#include "mex.h"
+
+#ifdef MATLAB_MEX_FILE
 #include "FindInsideOfPolyhedron.h"
+#include "mex.h"
+
 
 template <class T>
 
@@ -70,3 +76,4 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs,  const mxArray* prhs[] )
 	delete[] vertices;
 	delete[] faceIndices;
 }
+#endif
