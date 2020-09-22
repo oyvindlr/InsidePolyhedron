@@ -1,14 +1,17 @@
+/** \file FindInsideOfPolyhedron.cpp
+*	\brief Functions to determine whether points on a grid lie inside or outside a surface in 3D-space defined by triangular faces.
+*	\author Oyvind L Rortveit
+*	\date 2020
+*/
+
 #include "pch.h"
 #include "FindInsideOfPolyhedron.h"
 #include <cmath>
 #include <algorithm>
-#include <vector>
-#include <array>
 #include "DynamicArray.h"
 
 #ifdef MATLAB_MEX_FILE
 #include "mex.h"
-#define printf mexPrintf
 #define warning(msg) mexWarnMsgIdAndTxt("InsidePolyhedron:LogicError", msg)
 #else
 #define warning(msg) printf(msg)
@@ -17,13 +20,13 @@
 using namespace std;
 
 typedef vector<array<double, 3>> nBy3Array;
-typedef vector<array<array<double, 3>, 3>> nBy3By3Array;
 
-static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
+
+static void findExtremeCoords(const nBy3By3Array& faces, nBy3Array &minCoords, nBy3Array &maxCoords)
 {
-	minCoords.resize(nFaces);
-	maxCoords.resize(nFaces);
-	for (int i = 0; i < nFaces; i++)
+	minCoords.resize(faces.size());
+	maxCoords.resize(faces.size());
+	for (int i = 0; i < faces.size(); i++)
 	{
 		for (int dim = 0; dim < 3; dim++)
 		{
@@ -43,41 +46,31 @@ static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, 
 
 static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim)
 {
-	size_t nFaces = minCoords.size();
 	facesIndex.clear();
+	size_t nFaces = minCoords.size();
 	for (int i = 0; i < nFaces; i++)
 		if (minCoords[i][dim] < value && maxCoords[i][dim] > value)
 			facesIndex.insertLast_unsafe(i); //Actually safe because the array has a capacity of nFaces elements
 }
 
-template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
 
-static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const DynamicArray<int> &facesIndex)
-{	
-	size_t nSelected = facesIndex.size();
-	selectedFaces.resize(nSelected);
-	for (int i = 0; i < nSelected; i++)
-		for (int j = 0; j < 3; j++)
-			for (int k = 0; k < 3; k++)
-				selectedFaces[i][j][k] = faces[facesIndex[i]][j][k];
+static void selectFaces(nBy3By3Array &selectedFaces, const nBy3By3Array& faces, const DynamicArray<int> &facesIndex)
+{
+	selectedFaces.clear();
+	for (int i = 0; i < facesIndex.size(); i++)
+		selectedFaces.push_back(faces[facesIndex[i]]);
 }
 
 static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
 	const nBy3Array& maxCoords, const DynamicArray<int>& facesIndex)
 {
-	size_t nSelected = facesIndex.size();
 	minCoordsDim.clear();
 	maxCoordsDim.clear();
-	for (int i = 0; i < nSelected; i++)
+	for (int i = 0; i < facesIndex.size(); i++)
 	{
 		minCoordsDim.push_back(minCoords[facesIndex[i]]);
 		maxCoordsDim.push_back(maxCoords[facesIndex[i]]);
 	}
-}
-
-static void solve2by2otherway(const double A[2][2], double b[2])
-{
-
 }
 
 //Check if matrix is singular by checking if two values that are used as denominators are zero (or close to zero). 
@@ -149,7 +142,7 @@ static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, c
 }
 
 
-static inline bool isOdd(int n)
+static inline bool isOdd(size_t n)
 {
 	return (n % 2) == 1;
 }
@@ -164,8 +157,9 @@ static void warnOnce(const char *msg)
 	}
 }
 
-static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], const int faceIndices[][3], size_t nFaces)
+static void buildFaceMatrix(nBy3By3Array& faces, const double vertices[][3], const int faceIndices[][3], size_t nFaces)
 {
+	faces.resize(nFaces);
 	for (int i = 0; i < nFaces; i++)
 		for (int j = 0; j < 3; j++)
 			for (int k = 0; k < 3; k++)
@@ -222,10 +216,9 @@ a triangular face.
 */
 void insidePolyhedron(bool inside[], const double vertices[][3], const int faceIndices[][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
-	double (*faces)[3][3] = new double[nFaces][3][3];
+	nBy3By3Array faces;
 	buildFaceMatrix(faces, vertices, faceIndices, nFaces);
-	insidePolyhedron(inside, faces, nFaces, x, nx, y, ny, z, nz);
-	delete[] faces;
+	insidePolyhedron(inside, faces, x, nx, y, ny, z, nz);
 }
 
 /**
@@ -238,9 +231,8 @@ list of vertices and faces.
 \param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
 in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
 \param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
-\param faces[in] Definition of the triangular faces of the surface. faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face 
+\param faces Array (n by 3 by 3) of triangular faces, such that faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face
 of the polyhedron.
-\param nFaces Number of faces in the surface (size of faces)
 \param x X-coordinate values on the grid to be checked.
 \param nx Number of X-coordinates
 \param y Y-coordinate values on the grid to be checked.
@@ -248,7 +240,7 @@ of the polyhedron.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
+void insidePolyhedron(bool inside[], const nBy3By3Array& faces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
 	nBy3Array minCoords;
 	nBy3Array maxCoords;	
@@ -259,7 +251,7 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	nBy3By3Array facesD1;
 	size_t dimSteps[3];
 
-	DynamicArray<int> facesIndex {nFaces};
+	DynamicArray<int> facesIndex {faces.size()};
 
 	size_t dimSize[3] = {nx, ny, nz};
 	int dimOrder[3] = {0, 1, 2};
@@ -267,7 +259,7 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	selectDimensionsForFastestProcessing(dimOrder, dimSize, dimSteps);
 	const int dim0 = dimOrder[0], dim1 = dimOrder[1], dim2 = dimOrder[2];
 
-	findExtremeCoords(faces, minCoords, maxCoords, nFaces);
+	findExtremeCoords(faces, minCoords, maxCoords);
 
 	const double *gridCoords[] = {x, y, z};
 

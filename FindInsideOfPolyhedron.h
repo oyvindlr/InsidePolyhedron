@@ -1,4 +1,16 @@
+/** \file FindInsideOfPolyhedron.h
+*	\brief Functions to determine whether points on a grid lie inside or outside a surface in 3D-space defined by triangular faces.
+*	\author Oyvind L Rortveit
+*	\date 2020
+*/
+
 #pragma once
+
+#include <vector>
+#include <array>
+
+
+typedef std::vector<std::array<std::array<double, 3>, 3>> nBy3By3Array;
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
@@ -31,9 +43,8 @@ list of vertices and faces.
 \param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
 in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
 \param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
-\param faces[in] Definition of the triangular faces of the surface. faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face
+\param faces Array (n by 3 by 3) of triangular faces, such that faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face
 of the polyhedron.
-\param nFaces Number of faces in the surface (size of faces)
 \param x X-coordinate values on the grid to be checked.
 \param nx Number of X-coordinates
 \param y Y-coordinate values on the grid to be checked.
@@ -41,4 +52,4 @@ of the polyhedron.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz);
+void insidePolyhedron(bool inside[], const nBy3By3Array &faces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz);

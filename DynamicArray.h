@@ -1,3 +1,9 @@
+/** \file DynamicArray.h
+*	\brief Dynamic Array class similar to std::vector.
+*	\author Oyvind L Rortveit
+*	\date 2020
+*/
+
 #pragma once
 
 template <class T>
