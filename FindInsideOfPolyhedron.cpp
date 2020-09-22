@@ -19,10 +19,6 @@ using namespace std;
 typedef vector<array<double, 3>> nBy3Array;
 typedef vector<array<array<double, 3>, 3>> nBy3By3Array;
 
-static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. Try adding random noise to your vertex coordinates to avoid this problem.";
-
-static int dim0, dim1, dim2;
-
 static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
 {
 	minCoords.resize(nFaces);
@@ -51,7 +47,7 @@ static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCo
 	facesIndex.clear();
 	for (int i = 0; i < nFaces; i++)
 		if (minCoords[i][dim] < value && maxCoords[i][dim] > value)
-			facesIndex.insertLast_unsafe(i);
+			facesIndex.insertLast_unsafe(i); //Actually safe because the array has a capacity of nFaces elements
 }
 
 template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
@@ -79,52 +75,68 @@ static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const
 	}
 }
 
-static void solve2by2otherway(double A[2][2], double b[2])
+static void solve2by2otherway(const double A[2][2], double b[2])
 {
-	double fac = A[0][0] / A[1][0];
-	double a12 = A[0][1] - A[1][1] * fac;
 
-	if (abs(a12) < 1e-10 || abs(A[1][0]) < 1e-10)
-		warning(singularWarning);
-	double b1 = (b[0] - b[1] * fac) / a12;
-	b[0] = (b[1] - A[1][1] * b1) / A[1][0];
-	b[1] = b1;
 }
 
-
-//Solve a 2 by 2 linear equation by Gaussian elimination with partial pivoting
-static void solve2by2(double A[2][2], double b[2])
+//Check if matrix is singular by checking if two values that are used as denominators are zero (or close to zero). 
+//Warn if so, but only once.
+static inline void checkSingular(double denominator1, double denominator2)
 {
-	if (abs(A[0][0]) < abs(A[1][0]))//Partial pivoting
+	static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. "
+		"Try adding random noise to your vertex coordinates to avoid this problem.";
+	static bool hasAlreadyWarned = false;
+
+	if (abs(denominator1) < 1e-14 || abs(denominator2) < 1e-14)
+		if (!hasAlreadyWarned)
+		{
+			warning(singularWarning);
+			hasAlreadyWarned = true;
+		}
+}
+
+//Solve a 2 by 2 linear equation A*x = b by Gaussian elimination with partial pivoting.
+//b is overwritten by the result x.
+static void solve2by2(const double A[2][2], double b[2])
+{
+	if (abs(A[0][0]) > abs(A[1][0]))//Partial pivoting
 	{
-		solve2by2otherway(A, b);
-		return;
+		double fac = A[1][0] / A[0][0];
+		double a22 = A[1][1] - A[0][1] * fac;		
+		b[1] = (b[1] - b[0] * fac) / a22;
+		b[0] = (b[0] - A[0][1] * b[1]) / A[0][0];
+		checkSingular(a22, A[0][0]);
 	}
-	double fac = A[1][0] / A[0][0];
-	double a22 = A[1][1] - A[0][1] * fac;
-	if (abs(a22) < 1e-10 || abs(A[0][0]) < 1e-10)
-		warning(singularWarning);
-	b[1] = (b[1] - b[0] * fac) / a22;
-	b[0] = (b[0] - A[0][1] * b[1]) / A[0][0];
+	else
+	{
+		double fac = A[0][0] / A[1][0];
+		double a12 = A[0][1] - A[1][1] * fac;
+		double b1 = (b[0] - b[1] * fac) / a12;
+		b[0] = (b[1] - A[1][1] * b1) / A[1][0];
+		b[1] = b1;
+		checkSingular(a12, A[1][0]);
+	}
 }
 
 /** Get all crossings of triangular faces by a line in a specific direction */
-static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, double dim0Value, double dim1Value)
+static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, const double coords[2], const int dimOrder[3])
 {
 	double b[2];
 	double A[2][2];
-
+	int dim2 = dimOrder[2];
 	size_t nFaces = faces.size();
 	crossings.clear();
 
 	for (int i = 0; i < nFaces; i++)
 	{
-		b[0] = dim0Value - faces[i][0][dim0];
-		b[1] = dim1Value - faces[i][0][dim1];
-		A[0][0] = faces[i][1][dim0] - faces[i][0][dim0];
-		A[1][0] = faces[i][1][dim1] - faces[i][0][dim1];
-		A[0][1] = faces[i][2][dim0] - faces[i][0][dim0];
-		A[1][1] = faces[i][2][dim1] - faces[i][0][dim1];
+		for (int dimNo = 0; dimNo < 2; dimNo++)
+		{
+			int dim = dimOrder[dimNo];
+			b[dimNo] = coords[dimNo] - faces[i][0][dim];
+			A[dimNo][0] = faces[i][1][dim] - faces[i][0][dim];
+			A[dimNo][1] = faces[i][2][dim] - faces[i][0][dim];
+		}
 		solve2by2(A, b);
 		if (b[0] > 0 && b[1] > 0 && ((b[0] + b[1]) < 1))
 		{
@@ -142,6 +154,16 @@ static inline bool isOdd(int n)
 	return (n % 2) == 1;
 }
 
+static void warnOnce(const char *msg)
+{
+	static bool hasWarned = false;
+	if (!hasWarned)
+	{
+		warning(msg);
+		hasWarned = true;
+	}
+}
+
 static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], const int faceIndices[][3], size_t nFaces)
 {
 	for (int i = 0; i < nFaces; i++)
@@ -151,12 +173,13 @@ static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], co
 }
 
 
-static void selectDimensionsForFastestProcessing(size_t dimSize[3], size_t dimStep[3])
+//Selects the order in which the dimensions are processed
+static void selectDimensionsForFastestProcessing(int dimOrder[3], size_t dimSize[3], size_t dimStep[3])
 {
-	int dims[3] = {0, 1, 2};
 	size_t nx = dimSize[0];
 	size_t ny = dimSize[1];
 
+	//Bubble sort
 	for (int i = 0; i < 2; i++)
 	{
 		for (int j = 0; j < 2 - i; j++)
@@ -166,46 +189,18 @@ static void selectDimensionsForFastestProcessing(size_t dimSize[3], size_t dimSt
 				size_t temp = dimSize[j];
 				dimSize[j] = dimSize[j + 1];
 				dimSize[j + 1] = temp;
-				int tempi = dims[j];
-				dims[j] = dims[j + 1];
-				dims[j + 1] = tempi;
-			}
-		}
-	}
-	dim0 = dims[0];
-	dim1 = dims[1];
-	dim2 = dims[2];
-
-
-	dimStep[dim0] = ny;
-	dimStep[dim1] = 1;
-	dimStep[dim2] = ny * nx;
-}
-
-
-#if 0
-static void selectDimensionsForFastestProcessing(size_t dimSizes[3], int dimOrder[3])
-{
-	dimOrder[0] = 0; dimOrder[1] = 1; dimOrder[2] = 2;
-
-	//Bubble sort
-	for (int i = 0; i < 2; i++)
-	{
-		for (int j = 0; j < 2 - i; j++)
-		{
-			if (dimSizes[j] > dimSizes[j + 1])
-			{
-				size_t temp = dimSizes[j];
-				dimSizes[j] = dimSizes[j + 1];
-				dimSizes[j + 1] = temp;
 				int tempi = dimOrder[j];
 				dimOrder[j] = dimOrder[j + 1];
 				dimOrder[j + 1] = tempi;
 			}
 		}
 	}
+
+	dimStep[dimOrder[0]] = ny;
+	dimStep[dimOrder[1]] = 1;
+	dimStep[dimOrder[2]] = ny * nx;
 }
-#endif
+
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
@@ -267,38 +262,38 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	DynamicArray<int> facesIndex {nFaces};
 
 	size_t dimSize[3] = {nx, ny, nz};
+	int dimOrder[3] = {0, 1, 2};
 	
-	selectDimensionsForFastestProcessing(dimSize, dimSteps);
-	size_t dim0s = dimSize[0];
-	size_t dim1s = dimSize[1];
-	size_t dim2s = dimSize[2];
+	selectDimensionsForFastestProcessing(dimOrder, dimSize, dimSteps);
+	const int dim0 = dimOrder[0], dim1 = dimOrder[1], dim2 = dimOrder[2];
 
 	findExtremeCoords(faces, minCoords, maxCoords, nFaces);
 
 	const double *gridCoords[] = {x, y, z};
 
-	for (int i = 0; i < dim0s; i++)
+	for (int i = 0; i < dimSize[0]; i++)
 	{
 		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim0][i], dim0);
 		if (facesIndex.size() == 0)
 			continue;
 		selectFaces(facesD2, faces, facesIndex);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex);
-		for (int j = 0; j < dim1s; j++)
+		for (int j = 0; j < dimSize[1]; j++)
 		{
-			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1);
+			const double coords[2] = {gridCoords[dim0][i], gridCoords[dim1][j]};
+			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, coords[1], dim1);
 			if (facesIndex.size() == 0)
 				continue;
 			selectFaces(facesD1, facesD2, facesIndex);
-			getCrossings(crossings, facesD1, gridCoords[dim0][i], gridCoords[dim1][j]);
+			getCrossings(crossings, facesD1, coords, dimOrder);
 			size_t nCrossings = crossings.size();
 			if (nCrossings == 0)
 				continue;
 			if (isOdd(nCrossings))
-				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
+				warnOnce("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
 			int crossingsPassed = 0;
-			for (int k = 0; k < dim2s; k++)
+			for (int k = 0; k < dimSize[2]; k++)
 			{
 				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim2][k]))
 				{
