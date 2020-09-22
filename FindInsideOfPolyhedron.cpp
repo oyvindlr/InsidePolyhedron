@@ -150,7 +150,7 @@ static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], co
 				faces[i][j][k] = vertices[faceIndices[i][j]][k];
 }
 
-/*
+
 static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t *nz, size_t dimStep[3])
 {
 	size_t sizes[] = {*nx, *ny, *nz};
@@ -180,8 +180,9 @@ static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t 
 	*nz = sizes[0];
 	*ny = sizes[1];
 	*nx = sizes[2];
-}*/
+}
 
+#if 0
 static void selectDimensionsForFastestProcessing(size_t dimSizes[3], int dimOrder[3])
 {
 	dimOrder[0] = 0; dimOrder[1] = 1; dimOrder[2] = 2;
@@ -203,6 +204,7 @@ static void selectDimensionsForFastestProcessing(size_t dimSizes[3], int dimOrde
 		}
 	}
 }
+#endif
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
@@ -259,41 +261,24 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	nBy3Array maxCoordsD2;
 	nBy3By3Array facesD2;
 	nBy3By3Array facesD1;
-	
-	int dimOrder[3];
-	size_t dimSteps[3];	
-	size_t dimSizes[3] = {nx, ny, nz};
+	size_t dimSteps[3];
 
 	DynamicArray<int> facesIndex {nFaces};
 	
-	selectDimensionsForFastestProcessing(dimSizes, dimOrder);
-	
-
-	dim0 = dimOrder[0];
-	dim1 = dimOrder[1];
-	dim2 = dimOrder[2];
-	dimSteps[dim0] = ny * nx;
-	dimSteps[dim1] = 1;
-	dimSteps[dim2] = ny;
-	const size_t dimStep0 = dimSteps[0];
-	const size_t dimStep1 = dimSteps[1];
-	const size_t dimStep2 = dimSteps[2];
-	const size_t dim0s = dimSizes[0];
-	const size_t dim1s = dimSizes[1];
-	const size_t dim2s = dimSizes[2];
+	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
 
 	findExtremeCoords(faces, minCoords, maxCoords, nFaces);
 
 	const double *gridCoords[] = {x, y, z};
 
-	for (int i = 0; i < dim1s; i++)
+	for (int i = 0; i < nz; i++)
 	{
 		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2);
 		if (facesIndex.size() == 0)
 			continue;
 		selectFaces(facesD2, faces, facesIndex);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex);
-		for (int j = 0; j < dim1s; j++)
+		for (int j = 0; j < ny; j++)
 		{
 			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1);
 			if (facesIndex.size() == 0)
@@ -307,14 +292,14 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
 			int crossingsPassed = 0;
-			for (int k = 0; k < dim0s; k++)
+			for (int k = 0; k < nx; k++)
 			{
 				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim0][k]))
 				{
 					crossingsPassed++;
 					isInside = !isInside;
 				}
-				inside[i * dimStep0 + j * dimStep1 + k * dimStep2] = isInside;
+				inside[i * dimSteps[0] + j * dimSteps[1] + k * dimSteps[2]] = isInside;
 			}
 		}
 	}
