@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <vector>
 #include <array>
-
+#include "DynamicArray.h"
 
 #ifdef MATLAB_MEX_FILE
 #include "mex.h"
@@ -47,14 +47,16 @@ static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, 
 	}
 }
 
-static int findFacesInDim(vector<int>& facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
+static int findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
 {
+	facesIndex.clear();
 	int count = 0;
 	for (int i = 0; i < nFaces; i++)
 	{
 		if (minCoords[i][dim] < value && maxCoords[i][dim] > value)
 		{
-			facesIndex[count] = i;
+			//facesIndex[count] = i;
+			facesIndex.insertLast_unsafe(i);
 			count++;
 		}
 	}
@@ -63,7 +65,7 @@ static int findFacesInDim(vector<int>& facesIndex, const nBy3Array &minCoords, c
 
 template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
 
-static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const vector<int>& facesIndex, int nFacesZ)
+static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const DynamicArray<int> &facesIndex, int nFacesZ)
 {
 	selectedFaces.resize(nFacesZ);
 	for (int i = 0; i < nFacesZ; i++)
@@ -73,7 +75,7 @@ static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &fa
 }
 
 static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
-	const nBy3Array& maxCoords, const vector<int>& facesIndex, size_t nFacesZ)
+	const nBy3Array& maxCoords, const DynamicArray<int>& facesIndex, size_t nFacesZ)
 {
 	minCoordsDim.clear();
 	maxCoordsDim.clear();
@@ -243,9 +245,8 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	nBy3By3Array facesD1;
 	size_t dimSteps[3];
 
-	vector<int> facesIndex;
-	facesIndex.resize(nFaces);
-
+	DynamicArray<int> facesIndex {nFaces};
+	
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
 
 	size_t nxny = nx * ny;
