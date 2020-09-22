@@ -19,11 +19,9 @@ using namespace std;
 typedef vector<array<double, 3>> nBy3Array;
 typedef vector<array<array<double, 3>, 3>> nBy3By3Array;
 
-
-static int dim0, dim1, dim2;
-
 static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. Try adding random noise to your vertex coordinates to avoid this problem.";
 
+static int dim0, dim1, dim2;
 
 static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
 {
@@ -47,39 +45,34 @@ static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, 
 	}
 }
 
-static int findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
+static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim)
 {
+	size_t nFaces = minCoords.size();
 	facesIndex.clear();
-	int count = 0;
 	for (int i = 0; i < nFaces; i++)
-	{
 		if (minCoords[i][dim] < value && maxCoords[i][dim] > value)
-		{
-			//facesIndex[count] = i;
 			facesIndex.insertLast_unsafe(i);
-			count++;
-		}
-	}
-	return count;
 }
 
 template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
 
-static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const DynamicArray<int> &facesIndex, int nFacesZ)
-{
-	selectedFaces.resize(nFacesZ);
-	for (int i = 0; i < nFacesZ; i++)
+static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const DynamicArray<int> &facesIndex)
+{	
+	size_t nSelected = facesIndex.size();
+	selectedFaces.resize(nSelected);
+	for (int i = 0; i < nSelected; i++)
 		for (int j = 0; j < 3; j++)
 			for (int k = 0; k < 3; k++)
 				selectedFaces[i][j][k] = faces[facesIndex[i]][j][k];
 }
 
 static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
-	const nBy3Array& maxCoords, const DynamicArray<int>& facesIndex, size_t nFacesZ)
+	const nBy3Array& maxCoords, const DynamicArray<int>& facesIndex)
 {
+	size_t nSelected = facesIndex.size();
 	minCoordsDim.clear();
 	maxCoordsDim.clear();
-	for (int i = 0; i < nFacesZ; i++)
+	for (int i = 0; i < nSelected; i++)
 	{
 		minCoordsDim.push_back(minCoords[facesIndex[i]]);
 		maxCoordsDim.push_back(maxCoords[facesIndex[i]]);
@@ -116,10 +109,12 @@ static void solve2by2(double A[2][2], double b[2])
 }
 
 /** Get all crossings of triangular faces by a line in a specific direction */
-static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, int nFaces, double dim1Value, double dim2Value)
+static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, double dim1Value, double dim2Value)
 {
 	double b[2];
 	double A[2][2];
+
+	size_t nFaces = faces.size();
 	crossings.clear();
 
 	for (int i = 0; i < nFaces; i++)
@@ -155,11 +150,11 @@ static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], co
 				faces[i][j][k] = vertices[faceIndices[i][j]][k];
 }
 
+/*
 static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t *nz, size_t dimStep[3])
 {
 	size_t sizes[] = {*nx, *ny, *nz};
 	int dims[3] = {0, 1, 2};
-	size_t dimMult[] = {*ny * *nx, 1, *ny};
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -179,14 +174,35 @@ static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t 
 	dim2 = dims[0];
 	dim1 = dims[1];
 	dim0 = dims[2];
-	dimStep[dim0] = dimMult[0];
-	dimStep[dim1] = dimMult[1];
-	dimStep[dim2] = dimMult[2];
+	dimStep[dim0] = *ny * *nx;
+	dimStep[dim1] = 1;
+	dimStep[dim2] = *ny;
 	*nz = sizes[0];
 	*ny = sizes[1];
 	*nx = sizes[2];
-}
+}*/
 
+static void selectDimensionsForFastestProcessing(size_t dimSizes[3], int dimOrder[3])
+{
+	dimOrder[0] = 0; dimOrder[1] = 1; dimOrder[2] = 2;
+
+	//Bubble sort
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 2 - i; j++)
+		{
+			if (dimSizes[j] > dimSizes[j + 1])
+			{
+				size_t temp = dimSizes[j];
+				dimSizes[j] = dimSizes[j + 1];
+				dimSizes[j + 1] = temp;
+				int tempi = dimOrder[j];
+				dimOrder[j] = dimOrder[j + 1];
+				dimOrder[j + 1] = tempi;
+			}
+		}
+	}
+}
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
@@ -243,33 +259,47 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	nBy3Array maxCoordsD2;
 	nBy3By3Array facesD2;
 	nBy3By3Array facesD1;
-	size_t dimSteps[3];
+	
+	int dimOrder[3];
+	size_t dimSteps[3];	
+	size_t dimSizes[3] = {nx, ny, nz};
 
 	DynamicArray<int> facesIndex {nFaces};
 	
-	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
+	selectDimensionsForFastestProcessing(dimSizes, dimOrder);
+	
 
-	size_t nxny = nx * ny;
-
+	dim0 = dimOrder[0];
+	dim1 = dimOrder[1];
+	dim2 = dimOrder[2];
+	dimSteps[dim0] = ny * nx;
+	dimSteps[dim1] = 1;
+	dimSteps[dim2] = ny;
+	const size_t dimStep0 = dimSteps[0];
+	const size_t dimStep1 = dimSteps[1];
+	const size_t dimStep2 = dimSteps[2];
+	const size_t dim0s = dimSizes[0];
+	const size_t dim1s = dimSizes[1];
+	const size_t dim2s = dimSizes[2];
 
 	findExtremeCoords(faces, minCoords, maxCoords, nFaces);
 
 	const double *gridCoords[] = {x, y, z};
 
-	for (int i = 0; i < nz; i++)
+	for (int i = 0; i < dim1s; i++)
 	{
-		int nFacesD2 = findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2, nFaces);
-		if (nFacesD2 == 0)
+		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2);
+		if (facesIndex.size() == 0)
 			continue;
-		selectFaces(facesD2, faces, facesIndex, nFacesD2);
-		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex, nFacesD2);
-		for (int j = 0; j < ny; j++)
+		selectFaces(facesD2, faces, facesIndex);
+		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex);
+		for (int j = 0; j < dim1s; j++)
 		{
-			int nFacesD1 = findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1, nFacesD2);
-			if (nFacesD1 == 0)
+			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1);
+			if (facesIndex.size() == 0)
 				continue;
-			selectFaces(facesD1, facesD2, facesIndex, nFacesD1);
-			getCrossings(crossings, facesD1, nFacesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
+			selectFaces(facesD1, facesD2, facesIndex);
+			getCrossings(crossings, facesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
 			size_t nCrossings = crossings.size();
 			if (nCrossings == 0)
 				continue;
@@ -277,14 +307,14 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
 			int crossingsPassed = 0;
-			for (int k = 0; k < nx; k++)
+			for (int k = 0; k < dim0s; k++)
 			{
 				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim0][k]))
 				{
 					crossingsPassed++;
 					isInside = !isInside;
 				}
-				inside[i * dimSteps[0] + j * dimSteps[1] + k * dimSteps[2]] = isInside;
+				inside[i * dimStep0 + j * dimStep1 + k * dimStep2] = isInside;
 			}
 		}
 	}
