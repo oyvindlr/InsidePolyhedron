@@ -156,6 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="FindInsideOfPolyhedron.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />

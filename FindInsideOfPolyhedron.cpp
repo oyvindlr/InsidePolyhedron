@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 
+
 #ifdef MATLAB_MEX_FILE
 #include "mex.h"
 #define printf mexPrintf
@@ -46,7 +47,7 @@ static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, 
 	}
 }
 
-static int findFacesInDim(int *facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
+static int findFacesInDim(vector<int>& facesIndex, const nBy3Array &minCoords, const nBy3Array &maxCoords, double value, int dim, size_t nFaces)
 {
 	int count = 0;
 	for (int i = 0; i < nFaces; i++)
@@ -62,7 +63,7 @@ static int findFacesInDim(int *facesIndex, const nBy3Array &minCoords, const nBy
 
 template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
 
-static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const int facesIndex[], int nFacesZ)
+static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const vector<int>& facesIndex, int nFacesZ)
 {
 	selectedFaces.resize(nFacesZ);
 	for (int i = 0; i < nFacesZ; i++)
@@ -72,7 +73,7 @@ static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &fa
 }
 
 static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
-	const nBy3Array& maxCoords, const int facesIndex[], size_t nFacesZ)
+	const nBy3Array& maxCoords, const vector<int>& facesIndex, size_t nFacesZ)
 {
 	minCoordsDim.clear();
 	maxCoordsDim.clear();
@@ -234,14 +235,16 @@ of the polyhedron.
 void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
 	nBy3Array minCoords;
-	nBy3Array maxCoords;
-	int *facesIndex = new int[nFaces];
+	nBy3Array maxCoords;	
 	vector<double> crossings;
 	nBy3Array minCoordsD2;
 	nBy3Array maxCoordsD2;
 	nBy3By3Array facesD2;
 	nBy3By3Array facesD1;
 	size_t dimSteps[3];
+
+	vector<int> facesIndex;
+	facesIndex.resize(nFaces);
 
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
 
@@ -284,7 +287,6 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 			}
 		}
 	}
-	delete[] facesIndex;
 }
 
 
