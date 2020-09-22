@@ -24,7 +24,7 @@ static int dim0, dim1, dim2;
 static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. Try adding random noise to your vertex coordinates to avoid this problem.";
 
 
-static void findExtremeCoords(const nBy3By3Array &faces, nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
+static void findExtremeCoords(const double faces[][3][3], nBy3Array &minCoords, nBy3Array &maxCoords, size_t nFaces)
 {
 	minCoords.resize(nFaces);
 	maxCoords.resize(nFaces);
@@ -60,12 +60,15 @@ static int findFacesInDim(int *facesIndex, const nBy3Array &minCoords, const nBy
 	return count;
 }
 
-static void selectFaces(nBy3By3Array& selectedFaces, const nBy3By3Array& faces, const int facesIndex[], int nFacesZ)
+template <class NBy3ArrayTemplate> /* Either an nx3x3 C-array, or a vector of 3x3 std::arrays*/
+
+static void selectFaces(nBy3By3Array &selectedFaces, const NBy3ArrayTemplate &faces, const int facesIndex[], int nFacesZ)
 {
-	selectedFaces.clear();
+	selectedFaces.resize(nFacesZ);
 	for (int i = 0; i < nFacesZ; i++)
-		selectedFaces.push_back(faces[facesIndex[i]]);
-				
+		for (int j = 0; j < 3; j++)
+			for (int k = 0; k < 3; k++)
+				selectedFaces[i][j][k] = faces[facesIndex[i]][j][k];
 }
 
 static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const nBy3Array& minCoords, 
@@ -228,9 +231,8 @@ of the polyhedron.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const double faces_[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
+void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz)
 {
-	nBy3By3Array faces;
 	nBy3Array minCoords;
 	nBy3Array maxCoords;
 	int *facesIndex = new int[nFaces];
@@ -240,12 +242,6 @@ void insidePolyhedron(bool inside[], const double faces_[][3][3], size_t nFaces,
 	nBy3By3Array facesD2;
 	nBy3By3Array facesD1;
 	size_t dimSteps[3];
-
-	faces.resize(nFaces);
-	for (int i = 0; i < nFaces; i++)
-		for (int j = 0; j < 3; j++)
-			for (int k = 0; k < 3; k++)
-				faces[i][j][k] = faces_[i][j][k];
 
 	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
 
