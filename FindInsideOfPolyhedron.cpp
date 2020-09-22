@@ -109,7 +109,7 @@ static void solve2by2(double A[2][2], double b[2])
 }
 
 /** Get all crossings of triangular faces by a line in a specific direction */
-static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, double dim1Value, double dim2Value)
+static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, double dim0Value, double dim1Value)
 {
 	double b[2];
 	double A[2][2];
@@ -119,17 +119,17 @@ static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, d
 
 	for (int i = 0; i < nFaces; i++)
 	{
-		b[0] = dim1Value - faces[i][0][dim1];
-		b[1] = dim2Value - faces[i][0][dim2];
-		A[0][0] = faces[i][1][dim1] - faces[i][0][dim1];
-		A[1][0] = faces[i][1][dim2] - faces[i][0][dim2];
-		A[0][1] = faces[i][2][dim1] - faces[i][0][dim1];
-		A[1][1] = faces[i][2][dim2] - faces[i][0][dim2];
+		b[0] = dim0Value - faces[i][0][dim0];
+		b[1] = dim1Value - faces[i][0][dim1];
+		A[0][0] = faces[i][1][dim0] - faces[i][0][dim0];
+		A[1][0] = faces[i][1][dim1] - faces[i][0][dim1];
+		A[0][1] = faces[i][2][dim0] - faces[i][0][dim0];
+		A[1][1] = faces[i][2][dim1] - faces[i][0][dim1];
 		solve2by2(A, b);
 		if (b[0] > 0 && b[1] > 0 && ((b[0] + b[1]) < 1))
 		{
 			//No pun intended
-			double crossing = faces[i][0][dim0] + b[0] * (faces[i][1][dim0] - faces[i][0][dim0]) + b[1] * (faces[i][2][dim0] - faces[i][0][dim0]);
+			double crossing = faces[i][0][dim2] + b[0] * (faces[i][1][dim2] - faces[i][0][dim2]) + b[1] * (faces[i][2][dim2] - faces[i][0][dim2]);
 			crossings.push_back(crossing);
 		}
 	}
@@ -151,36 +151,37 @@ static void buildFaceMatrix(double faces[][3][3], const double vertices[][3], co
 }
 
 
-static void selectDimensionsForFastestProcessing(size_t *nx, size_t *ny, size_t *nz, size_t dimStep[3])
+static void selectDimensionsForFastestProcessing(size_t dimSize[3], size_t dimStep[3])
 {
-	size_t sizes[] = {*nx, *ny, *nz};
 	int dims[3] = {0, 1, 2};
+	size_t nx = dimSize[0];
+	size_t ny = dimSize[1];
 
 	for (int i = 0; i < 2; i++)
 	{
 		for (int j = 0; j < 2 - i; j++)
 		{
-			if (sizes[j] > sizes[j + 1])
+			if (dimSize[j] > dimSize[j + 1])
 			{
-				size_t temp = sizes[j];
-				sizes[j] = sizes[j + 1];
-				sizes[j + 1] = temp;
+				size_t temp = dimSize[j];
+				dimSize[j] = dimSize[j + 1];
+				dimSize[j + 1] = temp;
 				int tempi = dims[j];
 				dims[j] = dims[j + 1];
 				dims[j + 1] = tempi;
 			}
 		}
 	}
-	dim2 = dims[0];
+	dim0 = dims[0];
 	dim1 = dims[1];
-	dim0 = dims[2];
-	dimStep[dim0] = *ny * *nx;
+	dim2 = dims[2];
+
+
+	dimStep[dim0] = ny;
 	dimStep[dim1] = 1;
-	dimStep[dim2] = *ny;
-	*nz = sizes[0];
-	*ny = sizes[1];
-	*nx = sizes[2];
+	dimStep[dim2] = ny * nx;
 }
+
 
 #if 0
 static void selectDimensionsForFastestProcessing(size_t dimSizes[3], int dimOrder[3])
@@ -264,27 +265,32 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 	size_t dimSteps[3];
 
 	DynamicArray<int> facesIndex {nFaces};
+
+	size_t dimSize[3] = {nx, ny, nz};
 	
-	selectDimensionsForFastestProcessing(&nx, &ny, &nz, dimSteps);
+	selectDimensionsForFastestProcessing(dimSize, dimSteps);
+	size_t dim0s = dimSize[0];
+	size_t dim1s = dimSize[1];
+	size_t dim2s = dimSize[2];
 
 	findExtremeCoords(faces, minCoords, maxCoords, nFaces);
 
 	const double *gridCoords[] = {x, y, z};
 
-	for (int i = 0; i < nz; i++)
+	for (int i = 0; i < dim0s; i++)
 	{
-		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim2][i], dim2);
+		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim0][i], dim0);
 		if (facesIndex.size() == 0)
 			continue;
 		selectFaces(facesD2, faces, facesIndex);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex);
-		for (int j = 0; j < ny; j++)
+		for (int j = 0; j < dim1s; j++)
 		{
 			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, gridCoords[dim1][j], dim1);
 			if (facesIndex.size() == 0)
 				continue;
 			selectFaces(facesD1, facesD2, facesIndex);
-			getCrossings(crossings, facesD1, gridCoords[dim1][j], gridCoords[dim2][i]);
+			getCrossings(crossings, facesD1, gridCoords[dim0][i], gridCoords[dim1][j]);
 			size_t nCrossings = crossings.size();
 			if (nCrossings == 0)
 				continue;
@@ -292,9 +298,9 @@ void insidePolyhedron(bool inside[], const double faces[][3][3], size_t nFaces, 
 				warning("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
 			bool isInside = false;
 			int crossingsPassed = 0;
-			for (int k = 0; k < nx; k++)
+			for (int k = 0; k < dim2s; k++)
 			{
-				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim0][k]))
+				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim2][k]))
 				{
 					crossingsPassed++;
 					isInside = !isInside;
