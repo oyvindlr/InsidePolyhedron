@@ -17,9 +17,32 @@
 #define warning(msg) printf(msg)
 #endif
 
+//Remember to change this if you ever rewrite to use single precision 
+#define EPS 1e-14
+
 using namespace std;
 
 typedef vector<array<double, 3>> nBy3Array;
+
+
+static const int NWARNINGS = 2;
+
+static bool hasWarned[NWARNINGS];
+
+static void resetWarnings()
+{
+	for (int i = 0; i < NWARNINGS; i++)
+		hasWarned[i] = false;
+}
+
+static void warnOnce(const char *msg, int warningNo)
+{
+	if (!hasWarned[warningNo])
+	{
+		warning(msg);
+		hasWarned[warningNo] = true;
+	}
+}
 
 
 static void findExtremeCoords(const nBy3By3Array& faces, nBy3Array &minCoords, nBy3Array &maxCoords)
@@ -49,7 +72,7 @@ static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCo
 	facesIndex.clear();
 	size_t nFaces = minCoords.size();
 	for (int i = 0; i < nFaces; i++)
-		if (minCoords[i][dim] < value && maxCoords[i][dim] > value)
+		if (minCoords[i][dim] <= value && maxCoords[i][dim] >= value)
 			facesIndex.insertLast_unsafe(i); //Actually safe because the array has a capacity of nFaces elements
 }
 
@@ -73,25 +96,25 @@ static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const
 	}
 }
 
-//Check if matrix is singular by checking if two values that are used as denominators are zero (or close to zero). 
-//Warn if so, but only once.
-static inline void checkSingular(double denominator1, double denominator2)
-{
-	static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. "
-		"Try adding random noise to your vertex coordinates to avoid this problem.";
-	static bool hasAlreadyWarned = false;
 
-	if (abs(denominator1) < 1e-14 || abs(denominator2) < 1e-14)
-		if (!hasAlreadyWarned)
-		{
-			warning(singularWarning);
-			hasAlreadyWarned = true;
-		}
-}
+/******
+* Removed this part for now. It used to check if the matrix is singular, which means that the plane defined
+* by the triangle is parallel to the ray. However, this can mean either that the ray doesn't cross the triangle
+* (which is fine) or that the triangular face lies along the ray, in which case we cannot determine whether or
+* not there is a crossing. Since the two situations are difficult to discern, I have chosen for now to ignore the 
+* problem. In most cases, if there is a real problem, we will at some point end up with an odd number of crossings
+* for a single ray, and therefore get a warning.
+******/
+#if 0
+static const char *singularWarning = "The plane defined by one of the triangle faces is along the line used in ray tracing. "
+	"Try adding random noise to your vertex coordinates to avoid this problem.";
 
-//Solve a 2 by 2 linear equation A*x = b by Gaussian elimination with partial pivoting.
-//b is overwritten by the result x.
-static void solve2by2(const double A[2][2], double b[2])
+
+/** Solve a 2 by 2 linear equation A*x = b by Gaussian elimination with partial pivoting.
+*   b is overwritten by the result x.
+*  \returns False if the matrix is (numerically) singular, true otherwise.
+*/
+static bool solve2by2(const double A[2][2], double b[2])
 {
 	if (abs(A[0][0]) > abs(A[1][0]))//Partial pivoting
 	{
@@ -99,7 +122,7 @@ static void solve2by2(const double A[2][2], double b[2])
 		double a22 = A[1][1] - A[0][1] * fac;		
 		b[1] = (b[1] - b[0] * fac) / a22;
 		b[0] = (b[0] - A[0][1] * b[1]) / A[0][0];
-		checkSingular(a22, A[0][0]);
+		return abs(a22) > EPS && abs(A[0][0]) > EPS;
 	}
 	else
 	{
@@ -108,7 +131,30 @@ static void solve2by2(const double A[2][2], double b[2])
 		double b1 = (b[0] - b[1] * fac) / a12;
 		b[0] = (b[1] - A[1][1] * b1) / A[1][0];
 		b[1] = b1;
-		checkSingular(a12, A[1][0]);
+		return abs(a12) > EPS && abs(A[1][0]) > EPS;
+	}
+}
+#endif
+
+/** Solve a 2 by 2 linear equation A*x = b by Gaussian elimination with partial pivoting.
+*   b is overwritten by the result x.
+*/
+static void solve2by2(const double A[2][2], double b[2])
+{
+	if (abs(A[0][0]) > abs(A[1][0]))//Partial pivoting
+	{
+		double fac = A[1][0] / A[0][0];
+		double a22 = A[1][1] - A[0][1] * fac;
+		b[1] = (b[1] - b[0] * fac) / a22;
+		b[0] = (b[0] - A[0][1] * b[1]) / A[0][0];
+	}
+	else
+	{
+		double fac = A[0][0] / A[1][0];
+		double a12 = A[0][1] - A[1][1] * fac;
+		double b1 = (b[0] - b[1] * fac) / a12;
+		b[0] = (b[1] - A[1][1] * b1) / A[1][0];
+		b[1] = b1;
 	}
 }
 
@@ -145,16 +191,6 @@ static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, c
 static inline bool isOdd(size_t n)
 {
 	return (n % 2) == 1;
-}
-
-static void warnOnce(const char *msg)
-{
-	static bool hasWarned = false;
-	if (!hasWarned)
-	{
-		warning(msg);
-		hasWarned = true;
-	}
 }
 
 static void buildFaceMatrix(nBy3By3Array& faces, const double vertices[][3], const int faceIndices[][3], size_t nFaces)
@@ -201,7 +237,7 @@ static void selectDimensionsForFastestProcessing(int dimOrder[3], size_t dimSize
 This function uses ray-tracing to determine whether or not a point is inside the surface. Since the points
 to be checked are aligned on a grid, we can reuse information for each point to perform the calculation 
 significantly faster than if we were to check each point individually.
-\param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
+\param[out] inside Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
 in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
 \param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
 \param faceIndices[in] Definition of the triangular faces of the surface. Each row of this matrix consists of three indices into the vertex-list, which together define
@@ -228,7 +264,7 @@ to be checked are aligned on a grid, we can reuse information for each point to 
 significantly faster than if we were to check each point individually.
 This function is exactly the same as the other insidePolyhedron function, except that the surface is defined in a single list of triangular faces instead of a separate
 list of vertices and faces.
-\param inside[out] Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
+\param[out] inside Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
 in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
 \param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
 \param faces Array (n by 3 by 3) of triangular faces, such that faces[i][j][k] represents the k-coordinate (where x=0, y=1, z= 2) of the j'th vertex of the i'th face
@@ -250,6 +286,8 @@ void insidePolyhedron(bool inside[], const nBy3By3Array& faces, const double x[]
 	nBy3By3Array facesD2;
 	nBy3By3Array facesD1;
 	size_t dimSteps[3];
+
+	resetWarnings();
 
 	DynamicArray<int> facesIndex {faces.size()};
 
@@ -282,7 +320,7 @@ void insidePolyhedron(bool inside[], const nBy3By3Array& faces, const double x[]
 			if (nCrossings == 0)
 				continue;
 			if (isOdd(nCrossings))
-				warnOnce("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.");
+				warnOnce("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.", 0);
 			bool isInside = false;
 			int crossingsPassed = 0;
 			for (int k = 0; k < dimSize[2]; k++)

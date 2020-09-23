@@ -338,3 +338,8 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/Release mex/InsidePolyhedron.tlog/unsuccessfulbuild
+/Release mex/InsidePolyhedron.tlog/InsidePolyhedron.lastbuildstate
+/Release mex/InsidePolyhedron.tlog/CL.write.1.tlog
+/Release mex/InsidePolyhedron.tlog/CL.read.1.tlog
+/Release mex/InsidePolyhedron.tlog/CL.command.1.tlog
