@@ -67,5 +67,5 @@
 %   I1 = InsidePolyhedron(surface.vertices, surface.faces, x, y, z, true);
 %
 %   %Show a slice of the result
-%   imagesc(squeeze(I1(:,50,:)));
+%   imagesc(x, y, I1(:,:,50));
 %   axis equal;
