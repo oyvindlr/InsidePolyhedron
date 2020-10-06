@@ -13,6 +13,7 @@
 #include "FindInsideOfPolyhedron.h"
 #include "mex.h"
 #include "matrix.h"
+#include <cstring>
 
 
 template <class T>

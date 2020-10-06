@@ -7,7 +7,9 @@
 #ifndef PCH_H
 #define PCH_H
 
+#ifdef _MSC_VER //Only with MS visual c++
 // add headers that you want to pre-compile here
 #include "framework.h"
+#endif
 
 #endif //PCH_H
