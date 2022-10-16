@@ -226,9 +226,10 @@ static void selectDimensionsForFastestProcessing(int dimOrder[3], size_t dimSize
 		}
 	}
 
-	dimStep[dimOrder[0]] = ny;
-	dimStep[dimOrder[1]] = 1;
-	dimStep[dimOrder[2]] = ny * nx;
+	size_t dimSteps_orig[3] = {ny, 1, ny*nx};
+	dimStep[0] = dimSteps_orig[dimOrder[0]];
+	dimStep[1] = dimSteps_orig[dimOrder[1]];
+	dimStep[2] = dimSteps_orig[dimOrder[2]];
 }
 
 

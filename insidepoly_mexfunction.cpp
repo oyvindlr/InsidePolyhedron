@@ -49,8 +49,8 @@ static void addNoise(double vertices[][3], size_t nVertices, const double x[], s
 	mexCallMATLAB(1, mxOut, 1, mxIn, "rand");
 	double noisevar[3];
 	noisevar[0] = nx > 1 ? (x[1] - x[0]) * 1e-4 : 1e-6;
-	noisevar[1] = ny > 1 ? (x[1] - x[0]) * 1e-4 : 1e-6;
-	noisevar[2] = nz > 1 ? (x[1] - x[0]) * 1e-4 : 1e-6;
+	noisevar[1] = ny > 1 ? (y[1] - y[0]) * 1e-4 : 1e-6;
+	noisevar[2] = nz > 1 ? (z[1] - z[0]) * 1e-4 : 1e-6;
 	double(*noise)[3] = (double(*)[3])mxGetDoubles(mxOut[0]);
 	for (int i = 0; i < nVertices; i++)
 		for (int j = 0; j < 3; j++)
