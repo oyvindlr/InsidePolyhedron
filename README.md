@@ -1,4 +1,4 @@
-# InsidePolyhedron  <img align="right" src="blocky.png" width="150" alt="Illustration">
+# InsidePolyhedron  <img align="right" src="blocky.png" width="220" alt="Illustration">
 
 Fast C++ library to check which of a set of 3D-points on a grid are inside and which are outside of one or more closed surfaces defined by a  polyhedron. Includes an interface for Matlab&trade; using the mex-framework. 
 
