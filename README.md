@@ -71,4 +71,4 @@ Example:
 
 
 [![View InsidePolyhedron on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://se.mathworks.com/matlabcentral/fileexchange/80476-insidepolyhedron)
-
+[![DOI](https://zenodo.org/badge/298203424.svg)](https://zenodo.org/badge/latestdoi/298203424)
