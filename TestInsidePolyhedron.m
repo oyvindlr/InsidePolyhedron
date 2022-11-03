@@ -18,11 +18,9 @@ I0(sqrt(X.^2 + Z.^2) < 2.5) = false;
 I0(y>0,:,:) = false;
 
 
-%Turn the logical array into a smooth function for use in isosurface
-I0smooth = smooth3(I0, 'box', 5);
-I0smooth = I0;
+
 %Find the isosurface as a polyhedron
-surface = isosurface(X, Y, Z, I0smooth, 0.9);
+surface = isosurface(X, Y, Z, I0, 0.5);
 
 
 xyz = {x, y,z};
