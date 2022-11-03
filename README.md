@@ -37,6 +37,12 @@ The key to the speedup of checking points on a grid compared to checking points 
 
 ## Matlab interface
 
+To compile into a Matlab function, type 
+```matlab
+mex -R2018a FindInsideOfPolyhedron.cpp insidepoly_mexfunction.cpp -output InsidePolyhedron
+```
+in the Matlab prompt. An example of usage is found in the file TestInsidePolyhedron.m.
+
 I = InsidePolyhedron(V, F, x, y, z) returns a 3-dimensional boolean array where I(i, j, k) is true if and only if the point (y(i), x(j), z(k)) is inside the polyhedron surface. The dimensions of I are (length(y), length(x), length(z)), which corresponds to the size of the arrays returned by meshgrid(x, y, z). 
 
 I = InsidePolyhedron(V, F, x, y, z, useDithering) adds a tiny bit of noise to the vertex coordinates if useDithering is True. This can usually solve issues where one or more of the triangular faces are parallel to the traced ray, which in other circumstances would make the ray-tracing algorithm fail. This problem may occur when the vertices of the surface are themselves aligned on a grid. Points that lie exactly on (or numerically indistingushable from) the surface will end up being randomly assigned as inside or outside the surface.
