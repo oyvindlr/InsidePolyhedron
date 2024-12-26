@@ -19,7 +19,7 @@ this must be taken care of by the caller.
 class DynamicArray
 {
 public:
-	DynamicArray<T>(size_t initialCapacity) {
+	DynamicArray<T>(std::size_t initialCapacity) {
 		data = new T[initialCapacity];
 		capacity_ = initialCapacity;
 		size_ = 0;
@@ -31,7 +31,7 @@ public:
 	*
 	*	\param capacity The new capacity after call
 	*/
-	void changeCapacity(size_t capacity) {
+	void changeCapacity(std::size_t capacity) {
 		if (capacity <= size_)
 			return;
 		if (capacity == capacity_)
@@ -47,7 +47,7 @@ public:
 	/** Changes the capacity only if the current capacity is smaller than
 	*	the new capacity.
 	*/
-	void setMinimumCapacity(size_t capacity) {
+	void setMinimumCapacity(std::size_t capacity) {
 		if (capacity > capacity_)
 			changeCapacity(capacity);
 	}
@@ -77,11 +77,11 @@ public:
 		size_ = 0;
 	}
 
-	size_t size() const {
+	std::size_t size() const {
 		return size_;
 	}
 
-	size_t capacity() const {
+	std::size_t capacity() const {
 		return capacity_;
 	}
 
@@ -91,17 +91,17 @@ public:
 	}
 
 
-	T& operator[](size_t idx) {
+	T& operator[](std::size_t idx) {
 		return data[idx];
 	}
 
-	const T operator[](size_t idx) const {
+	const T operator[](std::size_t idx) const {
 		return data[idx];
 	}
 
 private:
-	size_t capacity_;
-	size_t size_;
+	std::size_t capacity_;
+	std::size_t size_;
 	T *data;
 };
 

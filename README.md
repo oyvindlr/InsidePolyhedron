@@ -4,7 +4,7 @@ Fast C++ library to check which of a set of 3D-points on a grid are inside and w
 
 
 
-The repository is in the form of a visual studio project. To compile on another platform/with a different compiler, you only need the files IsInsideOfPolyhedron.cpp, IsInsideOfPolyhedron.h and DynamicArray.h. If you are compiling for Matlab, you will need insidepoly_mexfunction.cpp as well.
+The repository is in the form of a visual studio project. To compile on another platform/with a different compiler, you only need the files FindInsideOfPolyhedron.cpp, FindInsideOfPolyhedron.h and DynamicArray.h. If you are compiling for Matlab, you will need insidepoly_mexfunction.cpp as well.
 
 The main function has the following interface:
 

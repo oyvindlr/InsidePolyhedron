@@ -14,7 +14,8 @@
 #include "mex.h"
 #define warning(msg) mexWarnMsgIdAndTxt("InsidePolyhedron:LogicError", msg)
 #else
-#define warning(msg) printf(msg)
+#include <cstdio>
+#define warning(msg) printf("%s\n",msg)
 #endif
 
 //Remember to change this if you ever rewrite to use single precision 
