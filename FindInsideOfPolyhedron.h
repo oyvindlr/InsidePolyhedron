@@ -30,7 +30,7 @@ a triangular face.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const double vertices[][3], const int faceIndices[][3], size_t nFaces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz);
+void insidePolyhedron(bool inside[], const double vertices[][3], const int faceIndices[][3], std::size_t nFaces, const double x[], std::size_t nx, const double y[], std::size_t ny, const double z[], std::size_t nz);
 
 
 /**
@@ -52,4 +52,4 @@ of the polyhedron.
 \param z Z-coordinate values on the grid to be checked.
 \param nz Number of Z-coordinates
 */
-void insidePolyhedron(bool inside[], const nBy3By3Array &faces, const double x[], size_t nx, const double y[], size_t ny, const double z[], size_t nz);
+void insidePolyhedron(bool inside[], const nBy3By3Array &faces, const double x[], std::size_t nx, const double y[], std::size_t ny, const double z[], std::size_t nz);

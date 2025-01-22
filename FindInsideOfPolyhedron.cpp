@@ -32,7 +32,7 @@ static bool hasWarned[NWARNINGS];
 
 static void resetWarnings()
 {
-	for (int i = 0; i < NWARNINGS; i++)
+	for (size_t i = 0; i < NWARNINGS; i++)
 		hasWarned[i] = false;
 }
 
@@ -50,7 +50,7 @@ static void findExtremeCoords(const nBy3By3Array& faces, nBy3Array &minCoords, n
 {
 	minCoords.resize(faces.size());
 	maxCoords.resize(faces.size());
-	for (int i = 0; i < faces.size(); i++)
+	for (size_t i = 0; i < faces.size(); i++)
 	{
 		for (int dim = 0; dim < 3; dim++)
 		{
@@ -72,7 +72,7 @@ static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCo
 {
 	facesIndex.clear();
 	size_t nFaces = minCoords.size();
-	for (int i = 0; i < nFaces; i++)
+	for (size_t i = 0; i < nFaces; i++)
 		if (minCoords[i][dim] <= value && maxCoords[i][dim] >= value)
 			facesIndex.insertLast_unsafe(i); //Actually safe because the array has a capacity of nFaces elements
 }
@@ -81,7 +81,7 @@ static void findFacesInDim(DynamicArray<int> &facesIndex, const nBy3Array &minCo
 static void selectFaces(nBy3By3Array &selectedFaces, const nBy3By3Array& faces, const DynamicArray<int> &facesIndex)
 {
 	selectedFaces.clear();
-	for (int i = 0; i < facesIndex.size(); i++)
+	for (size_t i = 0; i < facesIndex.size(); i++)
 		selectedFaces.push_back(faces[facesIndex[i]]);
 }
 
@@ -90,7 +90,7 @@ static void selectCoords(nBy3Array& minCoordsDim, nBy3Array& maxCoordsDim, const
 {
 	minCoordsDim.clear();
 	maxCoordsDim.clear();
-	for (int i = 0; i < facesIndex.size(); i++)
+	for (size_t i = 0; i < facesIndex.size(); i++)
 	{
 		minCoordsDim.push_back(minCoords[facesIndex[i]]);
 		maxCoordsDim.push_back(maxCoords[facesIndex[i]]);
@@ -168,7 +168,7 @@ static void getCrossings(vector<double> &crossings, const nBy3By3Array& faces, c
 	size_t nFaces = faces.size();
 	crossings.clear();
 
-	for (int i = 0; i < nFaces; i++)
+	for (size_t i = 0; i < nFaces; i++)
 	{
 		for (int dimNo = 0; dimNo < 2; dimNo++)
 		{
@@ -197,9 +197,9 @@ static inline bool isOdd(size_t n)
 static void buildFaceMatrix(nBy3By3Array& faces, const double vertices[][3], const int faceIndices[][3], size_t nFaces)
 {
 	faces.resize(nFaces);
-	for (int i = 0; i < nFaces; i++)
-		for (int j = 0; j < 3; j++)
-			for (int k = 0; k < 3; k++)
+	for (size_t i = 0; i < nFaces; i++)
+		for (size_t j = 0; j < 3; j++)
+			for (size_t k = 0; k < 3; k++)
 				faces[i][j][k] = vertices[faceIndices[i][j]][k];
 }
 
@@ -211,9 +211,9 @@ static void selectDimensionsForFastestProcessing(int dimOrder[3], size_t dimSize
 	size_t ny = dimSize[1];
 
 	//Bubble sort
-	for (int i = 0; i < 2; i++)
+	for (size_t i = 0; i < 2; i++)
 	{
-		for (int j = 0; j < 2 - i; j++)
+		for (size_t j = 0; j < 2 - i; j++)
 		{
 			if (dimSize[j] > dimSize[j + 1])
 			{
@@ -236,9 +236,9 @@ static void selectDimensionsForFastestProcessing(int dimOrder[3], size_t dimSize
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
-This function uses ray-tracing to determine whether or not a point is inside the surface. Since the points
+This function uses ray-tracing to determine whether or not a posize_t is inside the surface. Since the points
 to be checked are aligned on a grid, we can reuse information for each point to perform the calculation 
-significantly faster than if we were to check each point individually.
+significantly faster than if we were to check each posize_t individually.
 \param[out] inside Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
 in inside[(j * nx * ny) + (i * ny) +  k]. The reason for this configuration is to align with Matlab's meshgrid(x, y, z) function.
 \param vertices[in] Array of vertices in the polyhedron. Each vertex consists of 3 coordinates, x, y and z, therefore this is an n x 3 array.
@@ -261,9 +261,9 @@ void insidePolyhedron(bool inside[], const double vertices[][3], const int faceI
 
 /**
 \brief Check whether a set of points on a 3D-grid is inside or outside a surface defined by a polyhedron.
-This function uses ray-tracing to determine whether or not a point is inside the surface. Since the points
+This function uses ray-tracing to determine whether or not a posize_t is inside the surface. Since the points
 to be checked are aligned on a grid, we can reuse information for each point to perform the calculation
-significantly faster than if we were to check each point individually.
+significantly faster than if we were to check each posize_t individually.
 This function is exactly the same as the other insidePolyhedron function, except that the surface is defined in a single list of triangular faces instead of a separate
 list of vertices and faces.
 \param[out] inside Boolean array of output values, must be large enough to contain nx*ny*nz values. The result corresponding to the coordinate (x[i], y[j], z[k]) is found
@@ -303,14 +303,14 @@ void insidePolyhedron(bool inside[], const nBy3By3Array& faces, const double x[]
 
 	const double *gridCoords[] = {x, y, z};
 
-	for (int i = 0; i < dimSize[0]; i++)
+	for (size_t i = 0; i < dimSize[0]; i++)
 	{
 		findFacesInDim(facesIndex, minCoords, maxCoords, gridCoords[dim0][i], dim0);
 		if (facesIndex.size() == 0)
 			continue;
 		selectFaces(facesD2, faces, facesIndex);
 		selectCoords(minCoordsD2, maxCoordsD2, minCoords, maxCoords, facesIndex);
-		for (int j = 0; j < dimSize[1]; j++)
+		for (size_t j = 0; j < dimSize[1]; j++)
 		{
 			const double coords[2] = {gridCoords[dim0][i], gridCoords[dim1][j]};
 			findFacesInDim(facesIndex, minCoordsD2, maxCoordsD2, coords[1], dim1);
@@ -324,8 +324,8 @@ void insidePolyhedron(bool inside[], const nBy3By3Array& faces, const double x[]
 			if (isOdd(nCrossings))
 				warnOnce("Odd number of crossings found. The polyhedron may not be closed, or one of the triangular faces may lie in the exact direction of the traced ray.", 0);
 			bool isInside = false;
-			int crossingsPassed = 0;
-			for (int k = 0; k < dimSize[2]; k++)
+			size_t crossingsPassed = 0;
+			for (size_t k = 0; k < dimSize[2]; k++)
 			{
 				while ((crossingsPassed < nCrossings) && (crossings[crossingsPassed] < gridCoords[dim2][k]))
 				{
